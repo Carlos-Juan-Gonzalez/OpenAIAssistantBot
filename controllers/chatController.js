@@ -1,0 +1,63 @@
+// controllers/chatController.js
+import { loadAssistant, createThread, createUserMessage, runAssistant, listThreadMessages } from "../services/assistantService.js";
+import { getUserThread, setUserThread } from "../models/threadStore.js";
+import { get } from "http";
+
+export const handleChatRequest = async (req, res) => {
+  try {
+    const { userId, message } = req.body; // Esperamos que WordPress envíe al menos userId y message
+
+    // Validar que se reciban los parámetros necesarios
+    if (!userId || !message) {
+      return res.status(400).json({ success: false, error: "userId y message son requeridos." });
+    }
+    // Cargar el assistant en memoria
+    const assistant = await loadAssistant();
+
+    // Comprobar si ya existe un thread para ese usuario; si no, crear uno.
+    let threadId = getUserThread(userId);
+    if (!threadId) {
+      const threadData = await createThread();
+      threadId = threadData.id;
+      setUserThread(userId, threadId);
+    }
+
+    // Crear el mensaje del usuario en el thread
+    await createUserMessage(threadId, message);
+
+    // Ejecutar el assistant para procesar el thread
+    const runData = await runAssistant(threadId, assistant.id);
+
+    if (runData.status === "completed") {
+      // Obtener todos los mensajes del thread
+      const messagesResult = await listThreadMessages(threadId);
+      // Opcional: podrías transformar y ordenar los mensajes aquí.
+      const mensajes = messagesResult.data.reverse().map((msg) => ({
+        role: msg.role,
+        content: msg.content[0].text.value,
+      }));
+      return res.json({ success: true, messages: mensajes.slice(1) }); // Excluimos el primer mensaje que es el del usuario
+    } else {
+      return res.status(202).json({ success: false, status: runData.status });
+    }
+  } catch (error) {
+    console.error("Error al procesar la petición:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const handleCustomRequest = async (req, res) => {
+    const {userId} = req.body; // Esperamos que WordPress envíe el threadId
+    const messageList = listThreadMessages(getUserThread(userId)); // Obtener todos los mensajes del thread
+
+    res.status(200).json({
+        success: true,
+        messages: (await messageList).data.map((msg) => {
+            return {
+                role: msg.role,
+                content: msg.content[0].text.value,
+            };
+        }),
+    });
+};
+
