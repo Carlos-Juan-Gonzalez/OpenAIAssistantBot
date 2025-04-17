@@ -14,7 +14,7 @@ let assistant = null; // Variable para almacenar el asistente
 
 export const loadAssistant = async () => {
     if (!assistant) {
-        assistant = await openai.beta.assistants.retrieve("asst_q2uXzn880QvNNzdmFnE3Gg2f");
+        assistant = await openai.beta.assistants.retrieve(process.env.ASSISTANT_ID);
     }
     return assistant;
 };
