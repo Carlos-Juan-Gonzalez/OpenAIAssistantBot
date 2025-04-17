@@ -1,7 +1,7 @@
 // controllers/chatController.js
 import { loadAssistant, createThread, createUserMessage, runAssistant, listThreadMessages, runAssistantStream } from "../services/assistantService.js";
-import { getUserThread, setUserThread } from "../models/threadStore.js";
-import { get } from "http";
+import { getUserThread, setUserThread } from "../db/mongoService.js";
+
 
 // handler para peticiones de chat no asincronas
 export const handleChatRequest = async (req, res) => {
@@ -50,16 +50,10 @@ export const handleChatRequest = async (req, res) => {
 // handler para peticiones de prueba
 export const handleCustomRequest = async (req, res) => {
     const {userId} = req.body; // Esperamos que WordPress envíe el threadId
-    const messageList = listThreadMessages(getUserThread(userId)); // Obtener todos los mensajes del thread
+    setUserThread(userId, "testThreadId"); // Guardamos el threadId en la base de datos
 
     res.status(200).json({
         success: true,
-        messages: (await messageList).data.map((msg) => {
-            return {
-                role: msg.role,
-                content: msg.content[0].text.value,
-            };
-        }),
     });
 };
 
@@ -80,7 +74,7 @@ export const handleAsyncChatRequest = async (req, res) => {
     const assistant = await loadAssistant();
 
     // Comprobar si ya existe un thread para ese usuario; si no, crear uno.
-    let threadId = getUserThread(userId);
+    let threadId = await getUserThread(userId);
     if (!threadId) {
       const threadData = await createThread();
       threadId = threadData.id;
