@@ -39,3 +39,15 @@ export const runAssistant = async (threadId, assistantId) => {
 export const listThreadMessages = async (threadId) => {
     return await openai.beta.threads.messages.list(threadId);
 };
+
+export const runAssistantStream = async (threadId, assistantId, res) => {
+    return new Promise((resolve, reject) => {
+      const run = openai.beta.threads.runs.stream(threadId, {
+        assistant_id: assistantId
+      })
+        .on('textCreated', () => res.write('\n'))
+        .on('textDelta', (textDelta) => res.write(textDelta.value))
+        .on('end', resolve)
+        .on('error', (error) => reject(error));
+    });
+  };
